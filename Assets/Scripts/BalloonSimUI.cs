@@ -61,6 +61,21 @@ public class BalloonSimUI : MonoBehaviour
     [Header("Debug")]
     public bool simulate = true;
 
+    [Header("Animal Jelly")]
+    public bool animalJelly = true;
+
+    [Tooltip("How much animal is pushed by pop. 10Ц40")]
+    public float animalPopImpulse = 22f;
+
+    [Tooltip("Spring strength returning to base. 40Ц120")]
+    public float animalSpring = 70f;
+
+    [Tooltip("Damping for spring. 8Ц20")]
+    public float animalSpringDamping = 14f;
+
+    [Tooltip("Max offset from base (pixels), prevents crazy jumps")]
+    public float animalMaxOffset = 60f;
+
     private struct BalloonState
     {
         public RectTransform rt;
@@ -79,6 +94,10 @@ public class BalloonSimUI : MonoBehaviour
     }
 
     private readonly List<PopShock> _shocks = new();
+
+    private Vector2 _animalBasePos;
+    private Vector2 _animalVel;
+
 
     void Start()
     {
@@ -132,6 +151,9 @@ public class BalloonSimUI : MonoBehaviour
                 radius = r
             });
         }
+        _animalBasePos = animal.anchoredPosition;
+        _animalVel = Vector2.zero;
+
     }
 
     void Update()
@@ -285,6 +307,20 @@ public class BalloonSimUI : MonoBehaviour
             strength = popShockStrength,
             timeLeft = popShockDuration
         });
+        if (animalJelly && animal != null)
+        {
+            // push animal slightly DOWN + tiny sideways randomness (nice feel)
+            float side = Random.Range(-0.4f, 0.4f);
+            Vector2 impulseDir = (Vector2.down + Vector2.right * side).normalized;
+
+            _animalVel += impulseDir * animalPopImpulse;
+        }
+
+        // tiny counter-move of animal (very subtle)
+        if (animal != null)
+        {
+            animal.anchoredPosition += Vector2.down * 6f;
+        }
 
         Debug.Log("BalloonSimUI got POP from: " + popped.name); // прибери пот≥м
     }
@@ -329,10 +365,51 @@ public class BalloonSimUI : MonoBehaviour
                 st.vel += dir * (sh.strength * falloff * decay * dt);
 
                 _states[i] = st;
+
             }
 
             if (sh.timeLeft <= 0f) _shocks.RemoveAt(sIdx);
             else _shocks[sIdx] = sh;
+
+            
+        }
+        // --- Animal Jelly Spring ---
+        if (animalJelly && animal != null)
+        {
+
+            // IMPORTANT: if some other script moves animal (descend), keep base synced
+            // Smoothly follow external movement so jelly returns to the "new" base.
+
+            if (_animalVel.sqrMagnitude < 0.01f)
+                _animalBasePos = animal.anchoredPosition; // п≥дхоплюЇмо зовн≥шн≥й рух (descend)
+
+            Vector2 pos = animal.anchoredPosition;
+
+            // spring force towards base
+            Vector2 toBase = _animalBasePos - pos;
+            Vector2 acc = toBase * animalSpring;
+
+            _animalVel += acc * dt;
+
+            // damping
+            _animalVel *= Mathf.Exp(-animalSpringDamping * dt);
+
+
+            // integrate
+            pos += _animalVel * dt;
+
+            // clamp so it doesn't fly away
+            Vector2 offset = pos - _animalBasePos;
+            if (offset.magnitude > animalMaxOffset)
+                pos = _animalBasePos + offset.normalized * animalMaxOffset;
+
+            animal.anchoredPosition = pos;
+
+            float v = Mathf.Clamp01(_animalVel.magnitude / 200f);
+            float sx = 1f + v * 0.08f;
+            float sy = 1f - v * 0.10f;
+            animal.localScale = Vector3.Lerp(animal.localScale, new Vector3(sx, sy, 1f), 0.35f);
+
         }
     }
 

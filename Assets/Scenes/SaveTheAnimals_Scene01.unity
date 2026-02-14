@@ -581,11 +581,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 879892700742821500, guid: 368d79754f81c7f44ab1a44d1e51f4db, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 209
+      value: 257
       objectReference: {fileID: 0}
     - target: {fileID: 879892700742821500, guid: 368d79754f81c7f44ab1a44d1e51f4db, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 568
+      value: 222
       objectReference: {fileID: 0}
     - target: {fileID: 879892700742821500, guid: 368d79754f81c7f44ab1a44d1e51f4db, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -1492,6 +1492,11 @@ MonoBehaviour:
   animalAttachOffset: {x: 0, y: 0}
   balloonBottomOffsetMultiplier: 2
   simulate: 1
+  animalJelly: 1
+  animalPopImpulse: 200
+  animalSpring: 140
+  animalSpringDamping: 4
+  animalMaxOffset: 220
 --- !u!225 &1393684851
 CanvasGroup:
   m_ObjectHideFlags: 0
