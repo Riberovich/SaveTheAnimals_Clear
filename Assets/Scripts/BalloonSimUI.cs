@@ -17,6 +17,27 @@ public class BalloonSimUI : MonoBehaviour
     public float maxTilt = 25f;       // максимальний нахил в градусах (15Ц35)
     public float tiltDeadZone = 8f;   // зона, де не нахил€Їмо (щоб не трусилось)
 
+    [Header("Pop Shockwave")]
+    [Tooltip("Push nearby balloons when one pops (cheap imitation of pressure wave).")]
+    public bool enablePopShock = true;
+    [Tooltip("How long the shock pushes (seconds). 0.12Ц0.2 feels good.")]
+    public float popShockDuration = 0.16f;
+
+
+    [Tooltip("Immediate position nudge (pixels) so shock is visible even with strong rope/damping.")]
+    public float popShockPositionKick = 18f;
+
+
+    [Tooltip("Shock radius in multiples of popped balloon radius (1.0 = its radius, 2.0 = twice).")]
+    public float popShockRadiusMul = 2.2f;
+
+    [Tooltip("How strong the shock impulse is (adds to balloon velocity).")]
+    public float popShockStrength = 180f;
+
+    [Tooltip("Extra upward bias for shock, makes balloons 'jump' a bit.")]
+    public float popShockUpBias = 0.25f;
+
+
     [Header("Rotation Target")]
     public RectTransform ropeStartPoint; // перет€гни сюди Animal/RopeStartPoint
 
@@ -49,6 +70,15 @@ public class BalloonSimUI : MonoBehaviour
     }
 
     private readonly List<BalloonState> _states = new();
+    private struct PopShock
+    {
+        public Vector2 pos;
+        public float radius;
+        public float strength;
+        public float timeLeft;
+    }
+
+    private readonly List<PopShock> _shocks = new();
 
     void Start()
     {
@@ -78,6 +108,14 @@ public class BalloonSimUI : MonoBehaviour
         foreach (var b in balloons)
         {
             if (b == null) continue;
+
+            // Hook pop event (optional): lets us add a small shockwave to nearby balloons.
+            var tap = b.GetComponent<BalloonTap>();
+            if (tap != null)
+            {
+                RectTransform captured = b; // avoid closure issues
+                tap.onPopped += () => OnBalloonPopped(captured);
+            }
 
             // рад≥ус кол≥з≥њ: 0.5 * min(w,h) * collisionScale
             float r = 0.5f * Mathf.Min(b.rect.width, b.rect.height) * collisionScale;
@@ -231,6 +269,113 @@ public class BalloonSimUI : MonoBehaviour
         }
 
     }
+
+    private void OnBalloonPopped(RectTransform popped)
+    {
+        if (!enablePopShock) return;
+        if (popped == null) return;
+
+        float poppedR = 0.5f * Mathf.Min(popped.rect.width, popped.rect.height) * collisionScale;
+        float shockRadius = Mathf.Max(1f, poppedR * popShockRadiusMul);
+
+        _shocks.Add(new PopShock
+        {
+            pos = popped.anchoredPosition,
+            radius = shockRadius,
+            strength = popShockStrength,
+            timeLeft = popShockDuration
+        });
+
+        Debug.Log("BalloonSimUI got POP from: " + popped.name); // прибери пот≥м
+    }
+    private void LateUpdate()
+    {
+        if (!simulate) return;
+        if (_shocks.Count == 0) return;
+
+        float dt = Time.unscaledDeltaTime;
+
+        for (int sIdx = _shocks.Count - 1; sIdx >= 0; sIdx--)
+        {
+            var sh = _shocks[sIdx];
+            sh.timeLeft -= dt;
+
+            float life01 = Mathf.Clamp01(sh.timeLeft / popShockDuration);   // 1 -> 0
+            float decay = life01;                                           // л≥н≥йний спад
+
+            for (int i = 0; i < _states.Count; i++)
+            {
+                var st = _states[i];
+                if (st.rt == null || !st.rt.gameObject.activeInHierarchy) continue;
+
+                Vector2 p = st.rt.anchoredPosition;
+                Vector2 d = p - sh.pos;
+                float dist = d.magnitude;
+                if (dist < 0.001f) dist = 0.001f;
+                if (dist > sh.radius) continue;
+
+                float falloff = 1f - Mathf.Clamp01(dist / sh.radius);
+                Vector2 n = d / dist;
+
+                // напр€м поштовху + легкий УпухФ вверх
+                Vector2 dir = (n + Vector2.up * popShockUpBias).normalized;
+
+                // IMPORTANT: штовхаЇмо ≥ позиц≥ю, ≥ швидк≥сть
+                // позиц≥€ Ч щоб було видно нав≥ть при жорстк≥й мотузц≥
+                st.rt.anchoredPosition += dir * (popShockPositionKick * falloff * decay);
+
+
+                // швидк≥сть Ч щоб пот≥м красиво УрозгойдувалосьФ
+                st.vel += dir * (sh.strength * falloff * decay * dt);
+
+                _states[i] = st;
+            }
+
+            if (sh.timeLeft <= 0f) _shocks.RemoveAt(sIdx);
+            else _shocks[sIdx] = sh;
+        }
+    }
+
+
+    private void ApplyPopShock(Vector2 popPos, RectTransform popped)
+    {
+        // Determine a "radius" based on popped balloon size (same as collision radius base).
+        float poppedR = 0.5f * Mathf.Min(popped.rect.width, popped.rect.height) * collisionScale;
+        float shockRadius = Mathf.Max(1f, poppedR * popShockRadiusMul);
+
+        for (int i = 0; i < _states.Count; i++)
+        {
+            var s = _states[i];
+            if (s.rt == null || !s.rt.gameObject.activeInHierarchy) continue;
+            if (s.rt == popped) continue;
+
+            Vector2 p = s.rt.anchoredPosition;
+            Vector2 d = p - popPos;
+            float dist = d.magnitude;
+            if (dist < 0.001f) dist = 0.001f;
+
+            if (dist > shockRadius) continue;
+
+            // 0..1 falloff (strong near pop, weak at edge)
+            float falloff = 1f - Mathf.Clamp01(dist / shockRadius);
+
+            Vector2 n = d / dist;
+
+            // Small upward bias makes it feel "puffy"
+            Vector2 impulseDir = (n + Vector2.up * popShockUpBias).normalized;
+
+            // Add to velocity (impulse-like)
+            // Add to velocity (impulse-like)
+            s.vel += impulseDir * (popShockStrength * falloff);
+
+            // ALSO nudge position a bit (so itТs visible even if rope/damping cancels velocity)
+            s.rt.anchoredPosition += impulseDir * (popShockPositionKick * falloff);
+
+            _states[i] = s;
+
+        }
+    }
+
 
     // “очка кр≥пленн€ мотузки: Унижн€ серединаФ кульки
     private Vector2 GetBalloonAttachPoint(RectTransform b)

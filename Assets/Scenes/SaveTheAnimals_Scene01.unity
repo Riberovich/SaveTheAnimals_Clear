@@ -1469,6 +1469,12 @@ MonoBehaviour:
   rotateSpeed: 1
   maxTilt: 15
   tiltDeadZone: 8
+  enablePopShock: 1
+  popShockDuration: 0.3
+  popShockPositionKick: 60
+  popShockRadiusMul: 2.8
+  popShockStrength: 600
+  popShockUpBias: 0.2
   ropeStartPoint: {fileID: 1938474215}
   animal: {fileID: 581085182}
   balloons:
@@ -1479,7 +1485,7 @@ MonoBehaviour:
   - {fileID: 1353591534}
   - {fileID: 2029027462}
   upForce: 220
-  centerForce: 18
+  centerForce: 10
   damping: 14
   collisionScale: 0.7
   relaxIterations: 3
