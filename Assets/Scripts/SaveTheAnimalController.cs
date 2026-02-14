@@ -22,12 +22,15 @@ public class SaveTheAnimalController : MonoBehaviour
     public float bounceTime = 0.18f;
     public float squishX = 1.15f;
     public float squishY = 0.85f;
+    [SerializeField] private AnimalHangingIdle hangingIdle; // A4.1 idle (blink+tremble)
+
 
     [Header("References")]
     public FloatBobbingUI floatBobbing;
     public RectTransform animal;
     public Image animalImage;          // UI Image тваринки (для зміни спрайта)
     public BalloonTap[] balloons;
+    
 
     [Header("Animal Sprites")]
     public Sprite flyingSprite;        // спрайт коли летить
@@ -47,12 +50,23 @@ public class SaveTheAnimalController : MonoBehaviour
     private float bgMaxY;              // позиція Y, коли низ фону = низу канвасу
     private float bgStep;              // скільки піднімати фон за 1 кульку
     private bool isSmoothingStart = false;
+    private Vector3 baseAnimalScale;
+    private Vector3 baseFloatGroupScale;
 
     private void Start()
     {
         // --- Валідація посилань ---
         if (animalImage == null && animal != null)
             animalImage = animal.GetComponent<Image>();
+
+        // A4.1 auto-resolve idle (blink+tremble)
+        if (hangingIdle == null)
+        {
+            if (animal != null) hangingIdle = animal.GetComponentInChildren<AnimalHangingIdle>(true);
+            if (hangingIdle == null && floatGroup != null) hangingIdle = floatGroup.GetComponentInChildren<AnimalHangingIdle>(true);
+        }
+
+
 
         // --- Порахувати кульки ---
         total = 0;
@@ -114,6 +128,8 @@ public class SaveTheAnimalController : MonoBehaviour
                 }
             }
         }
+        if (animal != null) baseAnimalScale = animal.localScale;
+        if (floatGroup != null) baseFloatGroupScale = floatGroup.localScale;
     }
 
     private void Update()
@@ -156,6 +172,15 @@ public class SaveTheAnimalController : MonoBehaviour
         if (floatBobbing != null)
             floatBobbing.enabled = false;
 
+        // A4.1 stop idle (blink+tremble) on landing
+        if (hangingIdle != null)
+        {
+            hangingIdle.StopAndReset(); // скидає позу + повертає спрайт
+            hangingIdle.enabled = false; // гарантує, що Update більше не працює
+           
+        }
+
+
         // змінити спрайт
         if (animalImage != null && sittingSprite != null)
             animalImage.sprite = sittingSprite;
@@ -171,7 +196,14 @@ public class SaveTheAnimalController : MonoBehaviour
         Vector2 startPos = target.anchoredPosition;
         Vector2 endPos = new Vector2(startPos.x, groundY);
 
-        Vector3 startScale = target.localScale;
+        // поточний scale (може бути трохи "диханням" з idle) — беремо як старт
+        Vector3 startScaleCurrent = target.localScale;
+
+        // базовий scale — ціль, до якої м’яко повернемось під час падіння
+        Vector3 baseTargetScale = (target == floatGroup) ? baseFloatGroupScale : baseAnimalScale;
+
+        // також окремо збережемо scale тваринки, бо idle міг бути на animal, а посадка на floatGroup
+        Vector3 animalStartScaleCurrent = (animal != null) ? animal.localScale : Vector3.one;
 
         // 1) падіння вниз
         float t = 0f;
@@ -180,12 +212,16 @@ public class SaveTheAnimalController : MonoBehaviour
             t += Time.deltaTime / Mathf.Max(0.01f, landFallTime);
             float k = EaseOutCubic(t);
             target.anchoredPosition = Vector2.Lerp(startPos, endPos, k);
+            // плавно повертаємо scale до базового, без ривка
+            target.localScale = Vector3.Lerp(startScaleCurrent, baseTargetScale, k);
+            if (animal != null) animal.localScale = Vector3.Lerp(animalStartScaleCurrent, baseAnimalScale, k);
+
             yield return null;
         }
         target.anchoredPosition = endPos;
 
         // 2) squish
-        target.localScale = new Vector3(startScale.x * squishX, startScale.y * squishY, startScale.z);
+        target.localScale = new Vector3(baseTargetScale.x * squishX, baseTargetScale.y * squishY, baseTargetScale.z);
         yield return new WaitForSeconds(0.06f);
 
         // 3) bounce up
@@ -197,7 +233,7 @@ public class SaveTheAnimalController : MonoBehaviour
             t += Time.deltaTime / Mathf.Max(0.01f, bounceTime);
             float k = EaseOutCubic(t);
             target.anchoredPosition = Vector2.Lerp(endPos, bouncePos, k);
-            target.localScale = Vector3.Lerp(target.localScale, startScale, Time.deltaTime * 18f);
+            target.localScale = Vector3.Lerp(target.localScale, baseTargetScale, Time.deltaTime * 18f);
             yield return null;
         }
 
@@ -208,12 +244,16 @@ public class SaveTheAnimalController : MonoBehaviour
             t += Time.deltaTime / Mathf.Max(0.01f, bounceTime);
             float k = EaseInCubic(t);
             target.anchoredPosition = Vector2.Lerp(bouncePos, endPos, k);
-            target.localScale = Vector3.Lerp(target.localScale, startScale, Time.deltaTime * 18f);
+            target.localScale = Vector3.Lerp(target.localScale, baseTargetScale, Time.deltaTime * 18f);
             yield return null;
         }
 
         target.anchoredPosition = endPos;
-        target.localScale = startScale;
+        target.localScale = baseTargetScale;
+
+        if (floatGroup != null) floatGroup.localScale = baseFloatGroupScale;
+        if (animal != null) animal.localScale = baseAnimalScale;
+
     }
 
     private float EaseOutCubic(float x)

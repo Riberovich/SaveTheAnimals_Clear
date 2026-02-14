@@ -301,8 +301,27 @@ SaveTheAnimals/
 - A2: Pop VFX (Canvas-compatible)
 - A3: Animal descend step per pop
 - A4: Final land bounce + dust
-- A5: Simple reward screen → Next
+- A4.1: Animal Hanging Idle Animation
+Subtle trembling/shivering motion while suspended by balloons
+Occasional eye blink (low frequency, randomized interval)
+Fully procedural (no Animator required for MVP)
+- A4.2: Pop Reaction Blink
+On every balloon pop, animal briefly blinks/squeezes eyes
+Uses alternate eye sprite (swap image, short duration, restore)
+Must not interrupt descend logic
+- A4.3: Landing Dust Effect
+Spawn dust VFX at ground contact position
+Canvas-compatible particle system
+Trigger only on final balloon pop
+- A4.4: Post-Landing Celebration Animation
+Starts 1 second after landing
+Procedural animation only (no Animator required)
+Includes:
+Soft bounce (vertical movement)
+Squash & stretch (scale animation)
+Upper body sway left/right (subtle rotation or anchored offset)
 
+A5: Simple reward screen → Next
 **Milestone M2: Progression**
 - B1: Unlock animals by saved count
 - B2: Biome switching

@@ -386,10 +386,11 @@ MonoBehaviour:
   unlockDelay: 0
   floatGroup: {fileID: 1081624399}
   landFallTime: 0.2
-  bounceUp: 50
-  bounceTime: 0.18
+  bounceUp: 40
+  bounceTime: 0.2
   squishX: 1.15
   squishY: 0.85
+  hangingIdle: {fileID: 581085185}
   floatBobbing: {fileID: 1081624400}
   animal: {fileID: 581085182}
   animalImage: {fileID: 581085183}
@@ -941,6 +942,7 @@ GameObject:
   - component: {fileID: 581085182}
   - component: {fileID: 581085184}
   - component: {fileID: 581085183}
+  - component: {fileID: 581085185}
   m_Layer: 5
   m_Name: Animal
   m_TagString: Untagged
@@ -1006,6 +1008,33 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 581085181}
   m_CullTransparentMesh: 1
+--- !u!114 &581085185
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 581085181}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e9df3e849f075a408731d75ff714f2c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  uiTarget: {fileID: 581085182}
+  worldTarget: {fileID: 0}
+  swayDegrees: 2.5
+  swaySpeed: 0.7
+  tremblePos: 2
+  trembleRot: 0.6
+  trembleSpeed: 100
+  breatheScale: 0
+  breatheSpeed: 0
+  enableBlink: 1
+  uiImage: {fileID: 581085183}
+  spriteRenderer: {fileID: 0}
+  blinkSprite: {fileID: 21300000, guid: 32d70e829ba02f04d81ffe1b0d5bd549, type: 3}
+  blinkDuration: 0.1
+  blinkIntervalRange: {x: 2, y: 6}
 --- !u!224 &713251928 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 5280401351671639242, guid: 368d79754f81c7f44ab1a44d1e51f4db, type: 3}
@@ -1302,7 +1331,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a544cd4ffcca3e4e97c149656373493, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: {fileID: 0}
+  target: {fileID: 1081624399}
   amplitude: 15
   speed: 1.2
 --- !u!224 &1170549678 stripped
