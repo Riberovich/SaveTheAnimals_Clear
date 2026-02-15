@@ -80,6 +80,8 @@ public class BalloonTap : MonoBehaviour, IPointerDownHandler
 
         // Notify controller (same as your original behavior, just delayed by ~0.12s)
         onPopped?.Invoke();
+        
+
     }
 
     private void PlayRandomPopSfx()
