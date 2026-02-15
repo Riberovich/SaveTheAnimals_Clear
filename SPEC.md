@@ -306,7 +306,8 @@ Subtle trembling/shivering motion while suspended by balloons
 Occasional eye blink (low frequency, randomized interval)
 Fully procedural (no Animator required for MVP)
 - A4.2: Pop Reaction Blink
-On every balloon pop, animal briefly blinks/squeezes eyes
+On every balloon pop, animal briefly blinks/squeezes eyes.
+Swap to scared sprite briefly on pop (optional)
 Uses alternate eye sprite (swap image, short duration, restore)
 Must not interrupt descend logic
 - A4.3: Landing Dust Effect

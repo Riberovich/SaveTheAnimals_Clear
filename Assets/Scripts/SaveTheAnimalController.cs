@@ -24,6 +24,8 @@ public class SaveTheAnimalController : MonoBehaviour
     public float squishY = 0.85f;
     [SerializeField] private AnimalHangingIdle hangingIdle; // A4.1 idle (blink+tremble)
 
+    [Header("Idle VFX")]
+    public GameObject shakingVFXGroup; // assign ShakingVFXGroup here
 
     [Header("References")]
     public FloatBobbingUI floatBobbing;
@@ -35,6 +37,14 @@ public class SaveTheAnimalController : MonoBehaviour
     [Header("Animal Sprites")]
     public Sprite flyingSprite;        // спрайт коли летить
     public Sprite sittingSprite;       // спрайт коли сидить на землі
+    
+    [Header("M1 A4.2 - Pop Reaction (Scared Sprite)")]
+    public Sprite scaredSprite;           // спрайт "налякана/блимнула"
+    public float popReactionTime = 0.12f; // скільки тримаємо scared
+
+    private Coroutine popReactionRoutine;
+    private Sprite spriteBeforePop;
+    private bool isLanded = false;
 
     [Header("Background (moves up)")]
     public RectTransform background;   // твій Background (UI Image)
@@ -147,6 +157,8 @@ public class SaveTheAnimalController : MonoBehaviour
     private void OnBalloonPopped()
     {
         if (remaining <= 0) return;
+        // A4.2: scared sprite briefly on every pop
+        TriggerPopReaction();
 
         if (remaining == 1)
         {
@@ -166,8 +178,11 @@ public class SaveTheAnimalController : MonoBehaviour
         remaining--;
     }
 
+
     private void LandAnimal()
     {
+        isLanded = true;
+
         // зупинити паріння
         if (floatBobbing != null)
             floatBobbing.enabled = false;
@@ -178,6 +193,12 @@ public class SaveTheAnimalController : MonoBehaviour
             hangingIdle.StopAndReset(); // скидає позу + повертає спрайт
             hangingIdle.enabled = false; // гарантує, що Update більше не працює
            
+        }
+
+        if (shakingVFXGroup != null)
+        {
+            shakingVFXGroup.SetActive(false);
+         
         }
 
 
@@ -314,5 +335,37 @@ public class SaveTheAnimalController : MonoBehaviour
         // ВИДИМОСТЬ НЕ ЧІПАЄМО (alpha не міняємо)
         balloonsCanvasGroup.interactable = !locked;
         balloonsCanvasGroup.blocksRaycasts = !locked; // ключ: блокує тап/клік
+    }
+    private void TriggerPopReaction()
+    {
+        if (animalImage == null) return;
+        if (scaredSprite == null) return;
+        if (isLanded) return;
+
+        // зберігаємо, що було ДО попа (звичайно це flyingSprite або поточний)
+        spriteBeforePop = animalImage.sprite;
+
+        // якщо вже йде реакція — перезапускаємо, щоб не залипало
+        if (popReactionRoutine != null)
+            StopCoroutine(popReactionRoutine);
+
+        popReactionRoutine = StartCoroutine(PopReactionRoutine());
+    }
+
+    private System.Collections.IEnumerator PopReactionRoutine()
+    {
+        // показати scared
+        animalImage.sprite = scaredSprite;
+
+        yield return new WaitForSeconds(popReactionTime);
+
+        // якщо приземлились — НЕ відкатуємо, бо там уже sittingSprite
+        if (isLanded) yield break;
+
+        // відкатити назад тільки якщо sprite все ще scared (щоб не перебити інші зміни)
+        if (animalImage != null && animalImage.sprite == scaredSprite)
+            animalImage.sprite = spriteBeforePop != null ? spriteBeforePop : flyingSprite;
+
+        popReactionRoutine = null;
     }
 }
