@@ -3,82 +3,99 @@ using UnityEngine.UI;
 
 public class SaveTheAnimalController : MonoBehaviour
 {
-    [Header("Background Auto-Start")]
+    [Header("Background Auto-Start (LEGACY - now disabled by default)")]
     public bool autoPlaceBackgroundOnStart = true;
     public bool smoothStartBackground = true;
     public float smoothStartTime = 0.4f;
-    public float bgStepPerBalloon = 120f; // скільки піднімаємо фон за 1 pop (крім останнього)
+    public float bgStepPerBalloon = 120f; // legacy (background step)
 
     [Header("Input Lock (keep balloons visible)")]
     public bool lockInputDuringSmoothStart = true;
-    public GameObject balloonsRoot;                 // перетягни сюди об’єкт "Balloons"
-    public CanvasGroup balloonsCanvasGroup;         // або перетягни CanvasGroup з "Balloons"
-    public float unlockDelay = 0f;                  // опціонально: 0.1-0.2с якщо хочеш паузу після старту
+    public GameObject balloonsRoot;
+    public CanvasGroup balloonsCanvasGroup;
+    public float unlockDelay = 0f;
 
     [Header("Landing FX")]
-    public RectTransform floatGroup;   // наш FloatGroup (щоб зсунути всю зв’язку на землю)
+    public RectTransform floatGroup;
     public float landFallTime = 0.25f;
     public float bounceUp = 50f;
     public float bounceTime = 0.18f;
     public float squishX = 1.15f;
     public float squishY = 0.85f;
-    [SerializeField] private AnimalHangingIdle hangingIdle; // A4.1 idle (blink+tremble)
+    [SerializeField] private AnimalHangingIdle hangingIdle;
+
+    [Header("Ground System (Phase 2 - moves UP)")]
+    public RectTransform groundLayer;              // MOVES UP each pop
+    public RectTransform groundAnchor;             // landing Y comes from here (inside GroundLayer)
+    public float groundStepPerBalloon = 120f;      // how much ground moves per pop
+    public float groundMoveSpeed = 8f;             // smoothing speed
 
     [Header("Idle VFX")]
-    public GameObject shakingVFXGroup; // assign ShakingVFXGroup here
+    public GameObject shakingVFXGroup;
 
     [Header("References")]
     public FloatBobbingUI floatBobbing;
     public RectTransform animal;
-    public Image animalImage;          // UI Image тваринки (для зміни спрайта)
+    public Image animalImage;
     public BalloonTap[] balloons;
-    
 
     [Header("Animal Sprites")]
-    public Sprite flyingSprite;        // спрайт коли летить
-    public Sprite sittingSprite;       // спрайт коли сидить на землі
-    
+    public Sprite flyingSprite;
+    public Sprite sittingSprite;
+
     [Header("M1 A4.2 - Pop Reaction (Scared Sprite)")]
-    public Sprite scaredSprite;           // спрайт "налякана/блимнула"
-    public float popReactionTime = 0.12f; // скільки тримаємо scared
+    public Sprite scaredSprite;
+    public float popReactionTime = 0.12f;
 
     private Coroutine popReactionRoutine;
     private Sprite spriteBeforePop;
     private bool isLanded = false;
 
-    [Header("Background (moves up)")]
-    public RectTransform background;   // твій Background (UI Image)
-    public float bgMoveSpeed = 8f;     // плавність руху фону
+    [Header("Background (LEGACY - stays still now)")]
+    public RectTransform background;   // can stay assigned but will not move
+    public float bgMoveSpeed = 8f;     // legacy
 
-    [Header("Landing")]
-    public float groundY = -350f;      // Y позиція "землі" для тваринки (підкрутиш під свій фон)
+    [Header("Landing (LEGACY fallback)")]
+    public float groundY = -350f;      // used only if groundAnchor not assigned
 
     private int remaining;
     private int total;
 
-    private Vector2 bgTargetPos;
-    private float bgMaxY;              // позиція Y, коли низ фону = низу канвасу
-    private float bgStep;              // скільки піднімати фон за 1 кульку
+    private Canvas rootCanvas;
+    private Camera uiCamera;
+
+    // ground movement target
+    private Vector2 groundTargetPos;
+    private float groundFinalY;
+
+
     private bool isSmoothingStart = false;
+
     private Vector3 baseAnimalScale;
     private Vector3 baseFloatGroupScale;
 
     private void Start()
     {
-        // --- Валідація посилань ---
+
+        rootCanvas = GetComponentInParent<Canvas>();
+        if (rootCanvas != null)
+        {
+            // For Screen Space - Camera this should be set. For Overlay it can be null.
+            uiCamera = rootCanvas.renderMode == RenderMode.ScreenSpaceCamera ? rootCanvas.worldCamera : null;
+        }
+
+        // --- Validate references ---
         if (animalImage == null && animal != null)
             animalImage = animal.GetComponent<Image>();
 
-        // A4.1 auto-resolve idle (blink+tremble)
+        // Resolve idle component
         if (hangingIdle == null)
         {
             if (animal != null) hangingIdle = animal.GetComponentInChildren<AnimalHangingIdle>(true);
             if (hangingIdle == null && floatGroup != null) hangingIdle = floatGroup.GetComponentInChildren<AnimalHangingIdle>(true);
         }
 
-
-
-        // --- Порахувати кульки ---
+        // --- Count balloons ---
         total = 0;
         remaining = 0;
 
@@ -95,114 +112,103 @@ public class SaveTheAnimalController : MonoBehaviour
             b.onPopped += OnBalloonPopped;
         }
 
-        // --- Встановити початковий спрайт ---
+        // --- Set initial sprite ---
         if (animalImage != null && flyingSprite != null)
             animalImage.sprite = flyingSprite;
 
-        // --- Підняти/знайти CanvasGroup для блокування кліків ---
+        // --- Input lock support ---
         TryResolveBalloonsCanvasGroup();
 
-        // --- Background init ---
-        if (background != null)
+        // --- Ground init (Phase 2) ---
+        if (groundLayer != null)
         {
-            var canvas = background.GetComponentInParent<Canvas>();
-            RectTransform canvasRt = canvas.GetComponent<RectTransform>();
+            // This is the "final" (fully arrived) ground position you set in the scene
+            groundFinalY = groundLayer.anchoredPosition.y;
 
-            float canvasH = canvasRt.rect.height;
-            float bgH = background.rect.height;
+            // Start deeper depending on balloon count (so ground arrives near last pop)
+            float startY = groundFinalY - GetGroundStep() * Mathf.Max(0, total - 1);
 
-            // maxY = позиція, коли низ фону = низу канвасу
-            bgMaxY = Mathf.Max(0f, (bgH - canvasH) * 0.5f);
 
-            // базова позиція (X лишається як у сцені)
-            bgTargetPos = background.anchoredPosition;
-
-            // крок підняття фону — керований параметр
-            bgStep = bgStepPerBalloon;
-
-            // Автостарт позиції фону
-            if (autoPlaceBackgroundOnStart)
-            {
-                float desiredStartY = bgMaxY - bgStep * Mathf.Max(0, total - 1);
-                desiredStartY = Mathf.Max(0f, desiredStartY);
-
-                bgTargetPos = new Vector2(bgTargetPos.x, desiredStartY);
-
-                if (!smoothStartBackground)
-                {
-                    background.anchoredPosition = bgTargetPos; // миттєво
-                }
-                else
-                {
-                    StartCoroutine(SmoothBackgroundTo(bgTargetPos, smoothStartTime));
-                }
-            }
+            groundTargetPos = new Vector2(groundLayer.anchoredPosition.x, startY);
+            groundLayer.anchoredPosition = groundTargetPos; // instant start
         }
+
+
+        // We keep legacy SmoothStart lock logic available (optional)
+        // but we DO NOT move background anymore.
+        // If you still want to lock input for a moment on start, enable smoothStartBackground and use smoothStartTime.
+        if (smoothStartBackground && smoothStartTime > 0f && lockInputDuringSmoothStart)
+        {
+            // just do a short lock/unlock without moving anything
+            StartCoroutine(SmoothStartInputLockOnly(smoothStartTime));
+        }
+
         if (animal != null) baseAnimalScale = animal.localScale;
         if (floatGroup != null) baseFloatGroupScale = floatGroup.localScale;
     }
 
     private void Update()
     {
-        if (background == null) return;
-        if (isSmoothingStart) return;
-
-        background.anchoredPosition = Vector2.Lerp(
-            background.anchoredPosition,
-            bgTargetPos,
-            Time.deltaTime * bgMoveSpeed
-        );
+        // Move ONLY ground layer towards target
+        if (!isSmoothingStart && groundLayer != null)
+        {
+            groundLayer.anchoredPosition = Vector2.Lerp(
+                groundLayer.anchoredPosition,
+                groundTargetPos,
+                Time.deltaTime * groundMoveSpeed
+            );
+        }
     }
 
     private void OnBalloonPopped()
     {
         if (remaining <= 0) return;
+
         // A4.2: scared sprite briefly on every pop
         TriggerPopReaction();
 
         if (remaining == 1)
         {
-            // остання кулька: фон не рухаємо, приземляємо
+            // Snap ground to its target so GroundAnchor is correct when landing starts
+            if (groundLayer != null)
+                groundLayer.anchoredPosition = groundTargetPos;
+
             LandAnimal();
             remaining = 0;
             return;
         }
 
-        // піднімаємо фон на крок
-        if (background != null)
+
+        // Move ground UP by step (Phase 2)
+        if (groundLayer != null)
         {
-            bgTargetPos.y += bgStep;
-            bgTargetPos.y = Mathf.Min(bgTargetPos.y, bgMaxY);
+            groundTargetPos.y += GetGroundStep();
+            groundTargetPos.y = Mathf.Min(groundTargetPos.y, groundFinalY); // clamp
         }
+
 
         remaining--;
     }
-
 
     private void LandAnimal()
     {
         isLanded = true;
 
-        // зупинити паріння
+        // stop bobbing
         if (floatBobbing != null)
             floatBobbing.enabled = false;
 
-        // A4.1 stop idle (blink+tremble) on landing
+        // stop idle (blink+tremble)
         if (hangingIdle != null)
         {
-            hangingIdle.StopAndReset(); // скидає позу + повертає спрайт
-            hangingIdle.enabled = false; // гарантує, що Update більше не працює
-           
+            hangingIdle.StopAndReset();
+            hangingIdle.enabled = false;
         }
 
         if (shakingVFXGroup != null)
-        {
             shakingVFXGroup.SetActive(false);
-         
-        }
 
-
-        // змінити спрайт
+        // change sprite
         if (animalImage != null && sittingSprite != null)
             animalImage.sprite = sittingSprite;
 
@@ -215,25 +221,26 @@ public class SaveTheAnimalController : MonoBehaviour
         RectTransform target = floatGroup != null ? floatGroup : animal;
 
         Vector2 startPos = target.anchoredPosition;
-        Vector2 endPos = new Vector2(startPos.x, groundY);
+        float groundYLocal = GetGroundY();
+        Vector2 endPos = new Vector2(startPos.x, groundYLocal);
 
-        // поточний scale (може бути трохи "диханням" з idle) — беремо як старт
+        // Debug (enable only when troubleshooting)
+        // Debug.Log($"GroundY computed = {groundYLocal} | anchor={groundAnchor?.name}");
+
+
         Vector3 startScaleCurrent = target.localScale;
-
-        // базовий scale — ціль, до якої м’яко повернемось під час падіння
         Vector3 baseTargetScale = (target == floatGroup) ? baseFloatGroupScale : baseAnimalScale;
-
-        // також окремо збережемо scale тваринки, бо idle міг бути на animal, а посадка на floatGroup
         Vector3 animalStartScaleCurrent = (animal != null) ? animal.localScale : Vector3.one;
 
-        // 1) падіння вниз
+        // 1) fall down
         float t = 0f;
         while (t < 1f)
         {
             t += Time.deltaTime / Mathf.Max(0.01f, landFallTime);
             float k = EaseOutCubic(t);
             target.anchoredPosition = Vector2.Lerp(startPos, endPos, k);
-            // плавно повертаємо scale до базового, без ривка
+
+            // smooth scale back to base (no snap)
             target.localScale = Vector3.Lerp(startScaleCurrent, baseTargetScale, k);
             if (animal != null) animal.localScale = Vector3.Lerp(animalStartScaleCurrent, baseAnimalScale, k);
 
@@ -258,7 +265,7 @@ public class SaveTheAnimalController : MonoBehaviour
             yield return null;
         }
 
-        // 4) повернення вниз
+        // 4) return down
         t = 0f;
         while (t < 1f)
         {
@@ -274,8 +281,39 @@ public class SaveTheAnimalController : MonoBehaviour
 
         if (floatGroup != null) floatGroup.localScale = baseFloatGroupScale;
         if (animal != null) animal.localScale = baseAnimalScale;
-
     }
+
+    private float GetGroundY()
+    {
+        if (groundAnchor == null) return groundY;
+
+        RectTransform target = (floatGroup != null ? floatGroup : animal);
+        if (target == null) return groundY;
+
+        RectTransform targetParent = target.parent as RectTransform;
+        if (targetParent == null) return groundY;
+
+        // Convert groundAnchor WORLD position to LOCAL point in targetParent space
+        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(uiCamera, groundAnchor.position);
+
+        Vector2 localPoint;
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                targetParent,
+                screenPoint,
+                uiCamera,
+                out localPoint))
+        {
+            return localPoint.y;
+        }
+
+        return groundY;
+    }
+
+    private float GetGroundStep()
+    {
+        return groundStepPerBalloon > 0f ? groundStepPerBalloon : bgStepPerBalloon;
+    }
+
 
     private float EaseOutCubic(float x)
     {
@@ -289,31 +327,17 @@ public class SaveTheAnimalController : MonoBehaviour
         return x * x * x;
     }
 
-    private System.Collections.IEnumerator SmoothBackgroundTo(Vector2 targetPos, float duration)
+    private System.Collections.IEnumerator SmoothStartInputLockOnly(float duration)
     {
-        if (background == null) yield break;
-
         isSmoothingStart = true;
-        SetBalloonsInputLocked(true); // <-- блокуємо кліки, але НЕ ховаємо
+        SetBalloonsInputLocked(true);
 
-        Vector2 startPos = background.anchoredPosition;
-        float t = 0f;
-
-        while (t < 1f)
-        {
-            t += Time.deltaTime / Mathf.Max(0.01f, duration);
-            float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(t), 3f); // EaseOutCubic
-            background.anchoredPosition = Vector2.Lerp(startPos, targetPos, k);
-            yield return null;
-        }
-
-        background.anchoredPosition = targetPos;
+        yield return new WaitForSeconds(Mathf.Max(0.01f, duration));
 
         if (unlockDelay > 0f)
             yield return new WaitForSeconds(unlockDelay);
 
         SetBalloonsInputLocked(false);
-
         isSmoothingStart = false;
     }
 
@@ -322,9 +346,7 @@ public class SaveTheAnimalController : MonoBehaviour
         if (balloonsCanvasGroup != null) return;
 
         if (balloonsRoot != null)
-        {
             balloonsCanvasGroup = balloonsRoot.GetComponent<CanvasGroup>();
-        }
     }
 
     private void SetBalloonsInputLocked(bool locked)
@@ -332,20 +354,18 @@ public class SaveTheAnimalController : MonoBehaviour
         if (!lockInputDuringSmoothStart) return;
         if (balloonsCanvasGroup == null) return;
 
-        // ВИДИМОСТЬ НЕ ЧІПАЄМО (alpha не міняємо)
         balloonsCanvasGroup.interactable = !locked;
-        balloonsCanvasGroup.blocksRaycasts = !locked; // ключ: блокує тап/клік
+        balloonsCanvasGroup.blocksRaycasts = !locked;
     }
+
     private void TriggerPopReaction()
     {
         if (animalImage == null) return;
         if (scaredSprite == null) return;
         if (isLanded) return;
 
-        // зберігаємо, що було ДО попа (звичайно це flyingSprite або поточний)
         spriteBeforePop = animalImage.sprite;
 
-        // якщо вже йде реакція — перезапускаємо, щоб не залипало
         if (popReactionRoutine != null)
             StopCoroutine(popReactionRoutine);
 
@@ -354,15 +374,12 @@ public class SaveTheAnimalController : MonoBehaviour
 
     private System.Collections.IEnumerator PopReactionRoutine()
     {
-        // показати scared
         animalImage.sprite = scaredSprite;
 
         yield return new WaitForSeconds(popReactionTime);
 
-        // якщо приземлились — НЕ відкатуємо, бо там уже sittingSprite
         if (isLanded) yield break;
 
-        // відкатити назад тільки якщо sprite все ще scared (щоб не перебити інші зміни)
         if (animalImage != null && animalImage.sprite == scaredSprite)
             animalImage.sprite = spriteBeforePop != null ? spriteBeforePop : flyingSprite;
 
