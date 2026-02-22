@@ -24,6 +24,12 @@ public class SaveTheAnimalController : MonoBehaviour
     public float squishY = 0.85f;
     [SerializeField] private AnimalHangingIdle hangingIdle;
 
+    [Header("A4.3 - Landing Dust VFX")]
+    public GameObject landingDustVfxPrefab;
+    public Canvas landingVfxCanvas;
+    public float landingDustYOffset = 0f;
+    public float landingDustAutoDestroy = 2f;
+
     [Header("Landing Shadow")]
     public RectTransform animalShadow;   // assign AnimalShadow RectTransform
     public CanvasGroup shadowCanvasGroup; // optional, auto-resolve if null
@@ -322,6 +328,8 @@ public class SaveTheAnimalController : MonoBehaviour
         }
         target.anchoredPosition = endPos;
 
+        SpawnLandingDustAtContact(target, endPos);
+
         // 2) squish
         target.localScale = new Vector3(baseTargetScale.x * squishX, baseTargetScale.y * squishY, baseTargetScale.z);
         yield return new WaitForSeconds(0.06f);
@@ -355,6 +363,48 @@ public class SaveTheAnimalController : MonoBehaviour
 
         if (floatGroup != null) floatGroup.localScale = baseFloatGroupScale;
         if (animal != null) animal.localScale = baseAnimalScale;
+    }
+
+    private void SpawnLandingDustAtContact(RectTransform target, Vector2 endPos)
+    {
+        if (landingDustVfxPrefab == null) return;
+        if (target == null) return;
+
+        RectTransform targetParent = target.parent as RectTransform;
+        if (targetParent == null) return;
+
+        Vector3 contactWorld = targetParent.TransformPoint(new Vector3(endPos.x, endPos.y + landingDustYOffset, 0f));
+
+        if (landingVfxCanvas != null)
+        {
+            RectTransform canvasRect = landingVfxCanvas.transform as RectTransform;
+            if (canvasRect != null)
+            {
+                Camera vfxCam = landingVfxCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : landingVfxCanvas.worldCamera;
+                Vector2 screenPos = RectTransformUtility.WorldToScreenPoint(uiCamera, contactWorld);
+
+                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screenPos, vfxCam, out Vector2 localPoint))
+                {
+                    GameObject vfxUi = Instantiate(landingDustVfxPrefab, canvasRect);
+                    vfxUi.transform.localPosition = new Vector3(localPoint.x, localPoint.y, 0f);
+                    Destroy(vfxUi, GetVfxLifetime(vfxUi));
+                    return;
+                }
+            }
+        }
+
+        GameObject vfxWorld = Instantiate(landingDustVfxPrefab, contactWorld, Quaternion.identity);
+        Destroy(vfxWorld, GetVfxLifetime(vfxWorld));
+    }
+
+    private float GetVfxLifetime(GameObject vfxInstance)
+    {
+        if (vfxInstance == null) return Mathf.Max(0.2f, landingDustAutoDestroy);
+
+        ParticleSystem ps = vfxInstance.GetComponentInChildren<ParticleSystem>();
+        if (ps == null) return Mathf.Max(0.2f, landingDustAutoDestroy);
+
+        return Mathf.Max(0.2f, ps.main.duration + ps.main.startLifetime.constantMax + 0.2f);
     }
 
     private float GetGroundY()
