@@ -24,6 +24,15 @@ public class SaveTheAnimalController : MonoBehaviour
     public float squishY = 0.85f;
     [SerializeField] private AnimalHangingIdle hangingIdle;
 
+    [Header("Landing Shadow")]
+    public RectTransform animalShadow;   // assign AnimalShadow RectTransform
+    public CanvasGroup shadowCanvasGroup; // optional, auto-resolve if null
+    public float shadowFadeInTime = 0.12f;
+    public float shadowScaleInTime = 0.12f;
+    public Vector2 shadowOffset = new Vector2(0f, 20f); // tweak in inspector
+    public float shadowScaleMultiplier = 1.0f; // tweak (0.9-1.2)
+
+
     [Header("Ground System (Phase 2 - moves UP)")]
     public RectTransform groundLayer;              // MOVES UP each pop
     public RectTransform groundAnchor;             // landing Y comes from here (inside GroundLayer)
@@ -73,6 +82,8 @@ public class SaveTheAnimalController : MonoBehaviour
 
     private Vector3 baseAnimalScale;
     private Vector3 baseFloatGroupScale;
+
+    private Vector3 baseShadowScale;
 
     private void Start()
     {
@@ -145,6 +156,26 @@ public class SaveTheAnimalController : MonoBehaviour
 
         if (animal != null) baseAnimalScale = animal.localScale;
         if (floatGroup != null) baseFloatGroupScale = floatGroup.localScale;
+
+        // Shadow setup
+        if (animalShadow != null)
+        {
+            baseShadowScale = animalShadow.localScale;
+
+            // ensure it has CanvasGroup for fade
+            if (shadowCanvasGroup == null)
+                shadowCanvasGroup = animalShadow.GetComponent<CanvasGroup>();
+
+            if (shadowCanvasGroup == null)
+                shadowCanvasGroup = animalShadow.gameObject.AddComponent<CanvasGroup>();
+
+            // start hidden
+            shadowCanvasGroup.alpha = 0f;
+            animalShadow.gameObject.SetActive(false);
+
+            // optional: apply offset
+            animalShadow.anchoredPosition += shadowOffset;
+        }
     }
 
     private void Update()
@@ -190,6 +221,48 @@ public class SaveTheAnimalController : MonoBehaviour
         remaining--;
     }
 
+    private void ShowLandingShadow()
+    {
+        if (animalShadow == null) return;
+
+        animalShadow.gameObject.SetActive(true);
+
+        // reset before animation
+        animalShadow.localScale = baseShadowScale * 0.6f;
+        if (shadowCanvasGroup != null) shadowCanvasGroup.alpha = 0f;
+
+        StartCoroutine(ShadowInRoutine());
+    }
+
+    private System.Collections.IEnumerator ShadowInRoutine()
+    {
+        float t = 0f;
+
+        Vector3 startScale = baseShadowScale * 0.6f;
+        Vector3 endScale = baseShadowScale * shadowScaleMultiplier;
+
+        while (t < 1f)
+        {
+            t += Time.deltaTime / Mathf.Max(0.01f, shadowScaleInTime);
+            float k = 1f - Mathf.Pow(1f - Mathf.Clamp01(t), 3f); // ease out
+
+            if (animalShadow != null)
+                animalShadow.localScale = Vector3.Lerp(startScale, endScale, k);
+
+            if (shadowCanvasGroup != null)
+            {
+                float a = Mathf.Clamp01(t / Mathf.Max(0.01f, shadowFadeInTime));
+                shadowCanvasGroup.alpha = a;
+            }
+
+            yield return null;
+        }
+
+        if (animalShadow != null) animalShadow.localScale = endScale;
+        if (shadowCanvasGroup != null) shadowCanvasGroup.alpha = 1f;
+    }
+
+
     private void LandAnimal()
     {
         isLanded = true;
@@ -214,6 +287,7 @@ public class SaveTheAnimalController : MonoBehaviour
 
         StopAllCoroutines();
         StartCoroutine(LandingRoutine());
+        ShowLandingShadow();
     }
 
     private System.Collections.IEnumerator LandingRoutine()
