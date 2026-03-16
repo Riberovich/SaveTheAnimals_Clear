@@ -199,35 +199,18 @@ minimal UI clutter - \[ \] Safe area support + both orientations
 rarity, biome tags\
 - `BiomeDef` (ScriptableObject): bg, ground, music, balloon skins,
 animal pool\
-- `BalloonDef` (ScriptableObject): visuals, tapsToPop, VFX/SFX\
-- `BalloonVisualSetSO` (ScriptableObject): balloon sprite variants for a
-visual family / biome set\
-- `BalloonPatternPresetSO` (ScriptableObject): controlled bouquet layout
-preset (local positions, optional jitter/scale variation)\
-- `LevelDef` (target structure): animal, biome, balloon count, allowed
-balloon visuals, allowed pattern presets, future food data
+- `BalloonDef` (ScriptableObject): visuals, tapsToPop, VFX/SFX
 
 **Core Systems** - `GameFlowController` (state machine: Menu → Select →
 Play → Reward → Park) - `BalloonManager` (spawn, tap, pop, pooling) -
 `AnimalController` (float/descend/land + reactions) -
 `ProgressionManager` (unlocks, milestones, persistence) -
 `RewardManager` (stickers, celebration) - `AudioManager` (mixing,
-randomization) - `OrientationLayout` (portrait/landscape safe layouts) -
-`BalloonSpawner` (builds balloons from prefab + visual/pattern data,
-configures rope refs, SFX/VFX, and runtime controller binding)
-
-**Data Flow (current direction)** - Level / test setup provides balloon
-count + `BalloonVisualSetSO` + `BalloonPatternPresetSO[]`\
-- `BalloonSpawner` selects a valid preset by count\
-- Spawner assigns sprite variants from data instead of hardcoded tint\
-- Spawner instantiates rope + balloon pair and wires runtime refs\
-- `BalloonSimUI` rebuilds simulation from spawned balloons\
-- `SaveTheAnimalController` binds spawned balloons for gameplay logic
+randomization) - `OrientationLayout` (portrait/landscape safe layouts)
 
 **✅ DONE checklist** - \[ \] Pooling for balloons & VFX - \[ \]
 ScriptableObject-driven content - \[ \] Single input system (tap) - \[
-\] Persistence (PlayerPrefs/JSON) - \[ \] Balloon visuals read from
-data - \[ \] Balloon bouquet presets read from data
+\] Persistence (PlayerPrefs/JSON)
 
 ------------------------------------------------------------------------
 
@@ -361,17 +344,7 @@ Ensures consistent landing and parallax across devices.
 
 **Milestone M2: Progression** 
 - B1: Unlock animals by saved count 
-- B2: Biome switching 
-- B2.1: BalloonVisualSetSO data pipeline
-Spawner reads balloon image variants from data instead of hardcoded color.
-Supports biome-specific balloon skin families.
-- B2.2: BalloonPatternPresetSO data pipeline
-Spawner reads controlled bouquet composition presets from data.
-Supports multiple valid presets per balloon count.
-- B2.3: Level-driven balloon content
-Future `LevelDef` owns balloon count + allowed visual sets + allowed
-pattern presets.
-- B3: Sticker book
+- B2: Biome switching - B3: Sticker book
 
 **Milestone M3: Park** - C1: Park scene - C2: Spawn collected animals -
 C3: Tap reactions in park
@@ -526,44 +499,7 @@ Ensures: - Stable parallax - Stable landing - Device-independent layout
 
 ------------------------------------------------------------------------
 
-## 🎈 Balloon Content Data Architecture (New)
-
-Balloon presentation is moving from hardcoded scene composition toward
-controlled data-driven spawn.
-
-### Current Direction
-
-- `BalloonSpawner` is the single runtime entry point for bouquet build
-- Balloon visuals come from `BalloonVisualSetSO`
-- Bouquet layouts come from `BalloonPatternPresetSO`
-- Spawned balloons are fully configured at runtime (rope refs, pop SFX,
-pop VFX, gameplay binding)
-- `BalloonSimUI` and `SaveTheAnimalController` consume spawned balloons
-rather than relying on manually placed scene children
-
-### Why This Matters
-
-- Keeps scene setup lighter
-- Makes biome-specific balloon skins trivial
-- Gives controlled variety without ugly random layouts
-- Prepares clean transition to future empty-scene + `LevelDef` bootstrap
-flow
-
-### Practical Rule
-
-Do not hand-place final gameplay bouquets in scene for production
-content.
-Use prefab + data + spawner as the source of truth.
-
-------------------------------------------------------------------------
-
 # 📌 Lean Changelog
-
-v0.3 - Added data-driven balloon content direction - Introduced
-`BalloonVisualSetSO` for sprite-based balloon variants - Introduced
-`BalloonPatternPresetSO` for controlled bouquet layouts - Updated
-`BalloonSpawner` design to read visuals + patterns from data - Prepared
-future `LevelDef` integration for empty-scene bootstrap flow
 
 v0.2 - Replaced background movement with ground-based parallax -
 Implemented GroundAnchor landing system - Added procedural landing

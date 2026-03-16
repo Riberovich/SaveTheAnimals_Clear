@@ -76,6 +76,8 @@ public class BalloonSimUI : MonoBehaviour
     [Tooltip("Max offset from base (pixels), prevents crazy jumps")]
     public float animalMaxOffset = 60f;
 
+    private readonly Dictionary<BalloonTap, System.Action> _popHandlers = new();
+
     private struct BalloonState
     {
         public RectTransform rt;
@@ -101,6 +103,11 @@ public class BalloonSimUI : MonoBehaviour
 
     void Start()
     {
+        RebuildFromChildren();
+    }
+
+    public void RebuildFromChildren()
+    {
         if (animal == null)
         {
             Debug.LogError("BalloonSimUI: Animal is not assigned.");
@@ -108,19 +115,25 @@ public class BalloonSimUI : MonoBehaviour
             return;
         }
 
-        // Автозбір кульок, якщо масив не заданий
-        if (balloons == null || balloons.Length == 0)
+        enabled = true;
+
+        // unsubscribe old pop handlers
+        foreach (var kv in _popHandlers)
+            if (kv.Key != null) kv.Key.onPopped -= kv.Value;
+        _popHandlers.Clear();
+
+        // collect ONLY balloons (marker = BalloonTap)
+        var taps = GetComponentsInChildren<BalloonTap>(includeInactive: false);
+        var list = new List<RectTransform>(taps.Length);
+        foreach (var t in taps)
         {
-            var list = new List<RectTransform>();
-            for (int i = 0; i < transform.childCount; i++)
-            {
-                var child = transform.GetChild(i) as RectTransform;
-                if (child != null) list.Add(child);
-            }
-            balloons = list.ToArray();
+            var rt = t.GetComponent<RectTransform>();
+            if (rt != null) list.Add(rt);
         }
+        balloons = list.ToArray();
 
         _states.Clear();
+        _shocks.Clear();
 
         Vector2 aPos = animal.anchoredPosition + animalAttachOffset;
 
@@ -128,18 +141,16 @@ public class BalloonSimUI : MonoBehaviour
         {
             if (b == null) continue;
 
-            // Hook pop event (optional): lets us add a small shockwave to nearby balloons.
             var tap = b.GetComponent<BalloonTap>();
             if (tap != null)
             {
-                RectTransform captured = b; // avoid closure issues
-                tap.onPopped += () => OnBalloonPopped(captured);
+                RectTransform captured = b;
+                System.Action handler = () => OnBalloonPopped(captured);
+                tap.onPopped += handler;
+                _popHandlers[tap] = handler;
             }
 
-            // радіус колізії: 0.5 * min(w,h) * collisionScale
             float r = 0.5f * Mathf.Min(b.rect.width, b.rect.height) * collisionScale;
-
-            // довжина мотузки = поточна відстань від тварини до точки кріплення на кульці (нижня середина)
             Vector2 bAttach = GetBalloonAttachPoint(b);
             float ropeLen = Vector2.Distance(aPos, bAttach);
 
@@ -151,9 +162,9 @@ public class BalloonSimUI : MonoBehaviour
                 radius = r
             });
         }
+
         _animalBasePos = animal.anchoredPosition;
         _animalVel = Vector2.zero;
-
     }
 
     void Update()

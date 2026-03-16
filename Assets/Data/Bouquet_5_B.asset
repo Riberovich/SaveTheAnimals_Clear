@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01395eed0adc2834e80327659dcf3745, type: 3}
+  m_Name: Bouquet_5_B
+  m_EditorClassIdentifier: 
+  balloonCount: 5
+  localPositions:
+  - {x: -233, y: 504}
+  - {x: 178, y: 505}
+  - {x: 87, y: 280}
+  - {x: -43, y: 480}
+  - {x: -134, y: 283}
+  jitterX: 6
+  jitterY: 6
+  useScaleVariation: 0
+  scaleRange: {x: 0.96, y: 1.04}

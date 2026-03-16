@@ -83,6 +83,9 @@ public class SaveTheAnimalController : MonoBehaviour
     private Vector2 groundTargetPos;
     private float groundFinalY;
 
+    private float authoredGroundFinalY;
+    private bool groundFinalYCached = false;
+
 
     private bool isSmoothingStart = false;
 
@@ -91,6 +94,83 @@ public class SaveTheAnimalController : MonoBehaviour
 
     private Vector3 baseShadowScale;
 
+    public void BindBalloonsFromRoot(RectTransform balloonsRootRt)
+    {
+        if (balloonsRootRt == null) return;
+
+        balloonsRoot = balloonsRootRt.gameObject;
+        TryResolveBalloonsCanvasGroup();
+
+        // IMPORTANT: only active spawned balloons
+        var taps = balloonsRootRt.GetComponentsInChildren<BalloonTap>(false);
+        BindBalloons(taps);
+    }
+
+    public void BindBalloons(BalloonTap[] newBalloons)
+    {
+        // 1) unsubscribe old
+        if (balloons != null)
+        {
+            foreach (var b in balloons)
+            {
+                if (b != null) b.onPopped -= OnBalloonPopped;
+            }
+        }
+
+        // 2) assign new
+        balloons = newBalloons;
+
+        if (balloons == null || balloons.Length == 0)
+        {
+            total = 0;
+            remaining = 0;
+            return;
+        }
+        // 3) recount
+        total = 0;
+        remaining = 0;
+
+        if (balloons != null)
+        {
+            foreach (var b in balloons)
+            {
+                if (b == null) continue;
+
+                if (b.gameObject.activeSelf)
+                {
+                    total++;
+                    remaining++;
+                }
+
+                b.onPopped += OnBalloonPopped;
+            }
+        }
+
+        // 4) re-init ground start position based on balloon count
+        if (groundLayer != null)
+        {
+            if (!groundFinalYCached)
+            {
+                authoredGroundFinalY = groundLayer.anchoredPosition.y;
+                groundFinalYCached = true;
+            }
+
+            groundFinalY = authoredGroundFinalY;
+
+            float startY = groundFinalY - GetGroundStep() * Mathf.Max(0, total - 1);
+            groundTargetPos = new Vector2(groundLayer.anchoredPosition.x, startY);
+            groundLayer.anchoredPosition = groundTargetPos;
+        }
+    }
+
+    private void Awake()
+    {
+        if (groundLayer != null)
+        {
+            authoredGroundFinalY = groundLayer.anchoredPosition.y;
+            groundFinalYCached = true;
+        }
+    }
     private void Start()
     {
 
@@ -116,17 +196,11 @@ public class SaveTheAnimalController : MonoBehaviour
         total = 0;
         remaining = 0;
 
-        foreach (var b in balloons)
+        // If balloons were assigned manually in inspector, bind them.
+        // If balloons are spawned later, BalloonSpawner will call BindBalloonsFromRoot().
+        if (balloons != null && balloons.Length > 0)
         {
-            if (b == null) continue;
-
-            if (b.gameObject.activeSelf)
-            {
-                total++;
-                remaining++;
-            }
-
-            b.onPopped += OnBalloonPopped;
+            BindBalloons(balloons);
         }
 
         // --- Set initial sprite ---
@@ -137,17 +211,21 @@ public class SaveTheAnimalController : MonoBehaviour
         TryResolveBalloonsCanvasGroup();
 
         // --- Ground init (Phase 2) ---
+
         if (groundLayer != null)
         {
-            // This is the "final" (fully arrived) ground position you set in the scene
-            groundFinalY = groundLayer.anchoredPosition.y;
+            if (!groundFinalYCached)
+            {
+                authoredGroundFinalY = groundLayer.anchoredPosition.y;
+                groundFinalYCached = true;
+            }
 
-            // Start deeper depending on balloon count (so ground arrives near last pop)
+            groundFinalY = authoredGroundFinalY;
+
             float startY = groundFinalY - GetGroundStep() * Mathf.Max(0, total - 1);
 
-
             groundTargetPos = new Vector2(groundLayer.anchoredPosition.x, startY);
-            groundLayer.anchoredPosition = groundTargetPos; // instant start
+            groundLayer.anchoredPosition = groundTargetPos;
         }
 
 

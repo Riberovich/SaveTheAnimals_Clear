@@ -6,10 +6,10 @@ public class ParallaxUIController : MonoBehaviour
     public RectTransform groundLayer;
 
     [Header("Layers")]
-    public RectTransform skyLayer;        // 0%
-    public RectTransform farLayer;        // 0.25
-    public RectTransform midLayer;        // 0.6
-    public RectTransform foregroundLayer; // 1.15
+    public RectTransform skyLayer;
+    public RectTransform farLayer;
+    public RectTransform midLayer;
+    public RectTransform foregroundLayer;
 
     [Header("Multipliers")]
     [Range(0f, 2f)] public float farMultiplier = 0.25f;
@@ -22,13 +22,10 @@ public class ParallaxUIController : MonoBehaviour
     private Vector2 midStart;
     private Vector2 fgStart;
 
-    private void Start()
+    private void Awake()
     {
-        if (groundLayer != null) groundStart = groundLayer.anchoredPosition;
-        if (skyLayer != null) skyStart = skyLayer.anchoredPosition;
-        if (farLayer != null) farStart = farLayer.anchoredPosition;
-        if (midLayer != null) midStart = midLayer.anchoredPosition;
-        if (foregroundLayer != null) fgStart = foregroundLayer.anchoredPosition;
+        CacheAuthoredPositions();
+        ResetToAuthoredPositions();
     }
 
     private void LateUpdate()
@@ -38,7 +35,7 @@ public class ParallaxUIController : MonoBehaviour
         Vector2 delta = groundLayer.anchoredPosition - groundStart;
 
         if (skyLayer != null)
-            skyLayer.anchoredPosition = skyStart; // no movement
+            skyLayer.anchoredPosition = skyStart;
 
         if (farLayer != null)
             farLayer.anchoredPosition = farStart + delta * farMultiplier;
@@ -48,5 +45,23 @@ public class ParallaxUIController : MonoBehaviour
 
         if (foregroundLayer != null)
             foregroundLayer.anchoredPosition = fgStart + delta * foregroundMultiplier;
+    }
+
+    private void CacheAuthoredPositions()
+    {
+        if (groundLayer != null) groundStart = groundLayer.anchoredPosition;
+        if (skyLayer != null) skyStart = skyLayer.anchoredPosition;
+        if (farLayer != null) farStart = farLayer.anchoredPosition;
+        if (midLayer != null) midStart = midLayer.anchoredPosition;
+        if (foregroundLayer != null) fgStart = foregroundLayer.anchoredPosition;
+    }
+
+    public void ResetToAuthoredPositions()
+    {
+        if (groundLayer != null) groundLayer.anchoredPosition = groundStart;
+        if (skyLayer != null) skyLayer.anchoredPosition = skyStart;
+        if (farLayer != null) farLayer.anchoredPosition = farStart;
+        if (midLayer != null) midLayer.anchoredPosition = midStart;
+        if (foregroundLayer != null) foregroundLayer.anchoredPosition = fgStart;
     }
 }
