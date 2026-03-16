@@ -52,6 +52,32 @@ public class BalloonSpawner : MonoBehaviour
         StartCoroutine(SpawnRoutine(count));
     }
 
+    /// <summary>
+    /// Called by LevelBuilder in Awake to disable auto-start before Start() fires.
+    /// </summary>
+    public void SetAutoSpawn(bool enabled)
+    {
+        autoSpawnOnStart = enabled;
+    }
+
+    /// <summary>
+    /// Pushes level data into this spawner.
+    /// Call this before Spawn() — typically from LevelBuilder.
+    /// Only overrides fields that have valid values in the level.
+    /// </summary>
+    public void ConfigureFromLevel(LevelDefSO level)
+    {
+        if (level == null) return;
+
+        startCount = level.balloonCount;
+
+        var vs = level.GetVisualSet();
+        if (vs != null) visualSet = vs;
+
+        if (level.patternPresets != null && level.patternPresets.Length > 0)
+            patternPresets = level.patternPresets;
+    }
+
     private IEnumerator SpawnRoutine(int count)
     {
         if (balloonsRoot == null) balloonsRoot = transform as RectTransform;
@@ -82,7 +108,8 @@ public class BalloonSpawner : MonoBehaviour
             yield return null;
         }
 
-        Sprite[] chosenSprites = BuildSpriteSequence(count);
+        Sprite[]    chosenSprites = BuildSpriteSequence(count);
+        FoodDefSO[] chosenFoods   = BuildFoodSequence(count, chosenSprites);
 
         for (int i = 0; i < preset.localPositions.Length; i++)
         {
@@ -91,10 +118,11 @@ public class BalloonSpawner : MonoBehaviour
             pos.x += Random.Range(-preset.jitterX, preset.jitterX);
             pos.y += Random.Range(-preset.jitterY, preset.jitterY);
 
-            Sprite sprite = (chosenSprites != null && i < chosenSprites.Length) ? chosenSprites[i] : null;
-            float scaleMul = GetScaleMultiplier(preset);
+            Sprite    sprite   = (chosenSprites != null && i < chosenSprites.Length) ? chosenSprites[i] : null;
+            FoodDefSO food     = (chosenFoods   != null && i < chosenFoods.Length)   ? chosenFoods[i]   : null;
+            float     scaleMul = GetScaleMultiplier(preset);
 
-            CreatePair(i, pos, sprite, scaleMul);
+            CreatePair(i, pos, sprite, scaleMul, food);
         }
 
         yield return null;
@@ -112,7 +140,7 @@ public class BalloonSpawner : MonoBehaviour
         }
     }
 
-    private void CreatePair(int idx, Vector2 pos, Sprite balloonSprite, float scaleMul)
+    private void CreatePair(int idx, Vector2 pos, Sprite balloonSprite, float scaleMul, FoodDefSO food = null)
     {
         var rope = Instantiate(ropePrefab, balloonsRoot);
         rope.name = $"Rope_{idx + 1}";
@@ -136,6 +164,7 @@ public class BalloonSpawner : MonoBehaviour
 
         ApplySprite(balloon, balloonSprite);
         ConfigureBalloonTap(balloon);
+        ConfigureBalloonFood(balloon, food);
     }
 
     private void ApplySprite(RectTransform balloon, Sprite sprite)
@@ -159,6 +188,45 @@ public class BalloonSpawner : MonoBehaviour
         tap.popVfxPrefab = popVfxPrefab;
         tap.vfxCanvas = vfxCanvas;
         tap.worldCameraForSprites = worldCameraForSprites;
+    }
+
+    private void ConfigureBalloonFood(RectTransform balloon, FoodDefSO food)
+    {
+        if (food == null) return;
+        var tap = balloon.GetComponent<BalloonTap>();
+        if (tap == null) return;
+        tap.food = food;
+    }
+
+    /// <summary>
+    /// Builds a food array parallel to chosenSprites by looking up each sprite's index
+    /// in visualSet.balloonSprites and returning the matching foodPerSprite entry.
+    /// </summary>
+    private FoodDefSO[] BuildFoodSequence(int count, Sprite[] chosenSprites)
+    {
+        if (visualSet == null) return null;
+        if (visualSet.foodPerSprite == null || visualSet.foodPerSprite.Length == 0) return null;
+        if (chosenSprites == null) return null;
+
+        FoodDefSO[] result = new FoodDefSO[count];
+
+        for (int i = 0; i < count; i++)
+        {
+            Sprite s = (i < chosenSprites.Length) ? chosenSprites[i] : null;
+            if (s == null) continue;
+
+            // find this sprite's index in the source array to get its paired food
+            for (int j = 0; j < visualSet.balloonSprites.Length; j++)
+            {
+                if (visualSet.balloonSprites[j] == s && j < visualSet.foodPerSprite.Length)
+                {
+                    result[i] = visualSet.foodPerSprite[j];
+                    break;
+                }
+            }
+        }
+
+        return result;
     }
 
     private BalloonPatternPresetSO GetPresetForCount(int count)

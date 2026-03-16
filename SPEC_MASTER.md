@@ -195,17 +195,15 @@ minimal UI clutter - \[ \] Safe area support + both orientations
 
 ## 11) Technical Architecture (for Unity)
 
-**Data** - `AnimalDef` (ScriptableObject): id, sprite/anim set, sounds,
-rarity, biome tags\
-- `BiomeDef` (ScriptableObject): bg, ground, music, balloon skins,
-animal pool\
+**Data** - `AnimalDefSO` (ScriptableObject): id, sprite set (flying/sitting/scared), optional voice blips, rarity, biome tags\
+- `BiomeDefSO` (ScriptableObject): id, default balloon visual set, background prefab (placeholder), ambient music (placeholder)\
 - `BalloonDef` (ScriptableObject): visuals, tapsToPop, VFX/SFX\
 - `BalloonVisualSetSO` (ScriptableObject): balloon sprite variants for a
 visual family / biome set\
 - `BalloonPatternPresetSO` (ScriptableObject): controlled bouquet layout
 preset (local positions, optional jitter/scale variation)\
-- `LevelDef` (target structure): animal, biome, balloon count, allowed
-balloon visuals, allowed pattern presets, future food data
+- `LevelDefSO` (ScriptableObject): animal, biome, balloon count, optional visual set override, pattern presets, placeholder for future FoodDefSO
+- `FoodDefSO` (ScriptableObject): id, colorTag, sprite — one per balloon color variant
 
 **Core Systems** - `GameFlowController` (state machine: Menu → Select →
 Play → Reward → Park) - `BalloonManager` (spawn, tap, pop, pooling) -
@@ -214,15 +212,17 @@ Play → Reward → Park) - `BalloonManager` (spawn, tap, pop, pooling) -
 `RewardManager` (stickers, celebration) - `AudioManager` (mixing,
 randomization) - `OrientationLayout` (portrait/landscape safe layouts) -
 `BalloonSpawner` (builds balloons from prefab + visual/pattern data,
-configures rope refs, SFX/VFX, and runtime controller binding)
+configures rope refs, SFX/VFX, and runtime controller binding) -
+`LevelBuilder` (reads LevelDefSO, applies animal sprites to controller, pushes config into BalloonSpawner, triggers spawn)
 
-**Data Flow (current direction)** - Level / test setup provides balloon
-count + `BalloonVisualSetSO` + `BalloonPatternPresetSO[]`\
+**Data Flow (current direction)** - `LevelDefSO` provides animal, biome, balloon count, visual set, and pattern presets\
+- `LevelBuilder` reads `LevelDefSO` in Awake/Start, applies sprites to `SaveTheAnimalController`, configures `BalloonSpawner`\
 - `BalloonSpawner` selects a valid preset by count\
 - Spawner assigns sprite variants from data instead of hardcoded tint\
 - Spawner instantiates rope + balloon pair and wires runtime refs\
 - `BalloonSimUI` rebuilds simulation from spawned balloons\
-- `SaveTheAnimalController` binds spawned balloons for gameplay logic
+- `SaveTheAnimalController` binds spawned balloons for gameplay logic\
+- If no `LevelDefSO` is assigned to `LevelBuilder`, `BalloonSpawner` falls back to manual test mode (autoSpawnOnStart)
 
 **✅ DONE checklist** - \[ \] Pooling for balloons & VFX - \[ \]
 ScriptableObject-driven content - \[ \] Single input system (tap) - \[
@@ -314,6 +314,15 @@ pop, animal briefly blinks/squeezes eyes Uses alternate eye sprite (swap
 image, short duration, restore) Must not interrupt descend logic 
 - A4.3:Landing Dust Effect Spawn dust VFX at ground contact position
 Canvas-compatible particle system Trigger only on final balloon pop 
+- A4.X: Food Fly System
+
+On last balloon pop, a food item bursts from the balloon, flies upward (pop force), then arcs down into the animal's mouth.
+Food type is determined by the balloon's color via BalloonVisualSetSO.foodPerSprite mapping.
+Color → food: Orange=Carrot, Blue=Blueberry, Red=Strawberry, Green=Apple, Violet=Grapes, Pink=Peach, Yellow=Banana.
+Animal plays a chew squash animation (3 cycles) after food arrives.
+Fully data-driven: FoodDefSO holds sprite + id + colorTag.
+FoodFlyUI is a self-contained flight coroutine component (independent lifecycle, not affected by StopAllCoroutines in SaveTheAnimalController).
+
 - A4.4: Post-Landing Celebration Animation Starts 1 second after landing
 Procedural animation only (no Animator required) Includes: Soft bounce
 (vertical movement) Squash & stretch (scale animation) Upper body sway
@@ -368,9 +377,9 @@ Supports biome-specific balloon skin families.
 - B2.2: BalloonPatternPresetSO data pipeline
 Spawner reads controlled bouquet composition presets from data.
 Supports multiple valid presets per balloon count.
-- B2.3: Level-driven balloon content
-Future `LevelDef` owns balloon count + allowed visual sets + allowed
-pattern presets.
+- B2.3: Level-driven balloon content ✅
+`LevelDefSO` owns animal, biome, balloon count, allowed visual sets + pattern presets.
+`LevelBuilder` reads `LevelDefSO` and configures `BalloonSpawner` + `SaveTheAnimalController`.
 - B3: Sticker book
 
 **Milestone M3: Park** - C1: Park scene - C2: Spawn collected animals -
@@ -558,6 +567,10 @@ Use prefab + data + spawner as the source of truth.
 ------------------------------------------------------------------------
 
 # 📌 Lean Changelog
+
+v0.5 - Added Food Fly System (A4.X) - `FoodDefSO` for per-color food data - `BalloonVisualSetSO.foodPerSprite[]` maps balloon sprites to food - `BalloonSpawner` assigns food to each BalloonTap at spawn time - `BalloonTap` gains `food` field and `onPoppedSource` event (passes self as sender) - `SaveTheAnimalController` spawns `FoodFlyUI` on last balloon pop, plays chew animation on arrival - `FoodFlyUI`: burst-up phase + arc-to-mouth phase + scale-pop on arrival, tracks live mouth position, independent coroutine lifecycle
+
+v0.4 - Introduced `AnimalDefSO` for per-animal sprite + audio + meta data - Introduced `BiomeDefSO` for biome identity, default balloon visuals, future bg/music - Introduced `LevelDefSO` tying animal + biome + balloon count + visual/pattern overrides - Added `LevelBuilder` MonoBehaviour: reads LevelDefSO, applies animal sprites to controller, configures + triggers BalloonSpawner - BalloonSpawner gains `ConfigureFromLevel(LevelDefSO)` and `SetAutoSpawn(bool)` for level-driven mode - Manual test mode (autoSpawnOnStart) fully preserved as fallback
 
 v0.3 - Added data-driven balloon content direction - Introduced
 `BalloonVisualSetSO` for sprite-based balloon variants - Introduced

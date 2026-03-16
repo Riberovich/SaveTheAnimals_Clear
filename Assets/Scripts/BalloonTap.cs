@@ -6,6 +6,14 @@ public class BalloonTap : MonoBehaviour, IPointerDownHandler
 {
     public System.Action onPopped;
 
+    /// <summary>Same as onPopped but passes this BalloonTap as the source.
+    /// Used by SaveTheAnimalController to identify which balloon was last and read its food.</summary>
+    public System.Action<BalloonTap> onPoppedSource;
+
+    [Header("Food")]
+    [Tooltip("Set by BalloonSpawner from BalloonVisualSetSO.foodPerSprite. Null = no food.")]
+    public FoodDefSO food;
+
     [Header("Pop Feedback")]
     [Tooltip("4 pop clips. One will be chosen randomly.")]
     public AudioClip[] popClips; // size 4
@@ -64,7 +72,7 @@ public class BalloonTap : MonoBehaviour, IPointerDownHandler
         // Quick scale up (0 -> 1)
         while (t < popAnimTime)
         {
-            t += Time.unscaledDeltaTime; // UI-friendly; doesn’t care about timescale
+            t += Time.unscaledDeltaTime; // UI-friendly; doesnï¿½t care about timescale
             float k = Mathf.Clamp01(t / popAnimTime);
             // simple ease-out
             float eased = 1f - Mathf.Pow(1f - k, 3f);
@@ -80,8 +88,7 @@ public class BalloonTap : MonoBehaviour, IPointerDownHandler
 
         // Notify controller (same as your original behavior, just delayed by ~0.12s)
         onPopped?.Invoke();
-        
-
+        onPoppedSource?.Invoke(this);
     }
 
     private void PlayRandomPopSfx()

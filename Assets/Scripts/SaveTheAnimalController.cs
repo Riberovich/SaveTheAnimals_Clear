@@ -45,6 +45,20 @@ public class SaveTheAnimalController : MonoBehaviour
     public float groundStepPerBalloon = 120f;      // how much ground moves per pop
     public float groundMoveSpeed = 8f;             // smoothing speed
 
+    [Header("A4.X – Food Fly System")]
+    [Tooltip("Prefab: RectTransform + Image + FoodFlyUI. No content — sprite is set at runtime.")]
+    public GameObject foodItemPrefab;
+    [Tooltip("Parent container where food is spawned. Must share a canvas with the balloons (e.g. BalloonsRoot parent or the gameplay canvas RectTransform).")]
+    public RectTransform foodContainer;
+    [Tooltip("Empty child RectTransform placed at the animal's mouth position.")]
+    public RectTransform mouthPoint;
+
+    [Header("Chew Animation")]
+    public int chewCount = 3;
+    public float chewSquishTime = 0.08f;
+    public float chewSquishX = 1.12f;
+    public float chewSquishY = 0.88f;
+
     [Header("Idle VFX")]
     public GameObject shakingVFXGroup;
 
@@ -113,7 +127,7 @@ public class SaveTheAnimalController : MonoBehaviour
         {
             foreach (var b in balloons)
             {
-                if (b != null) b.onPopped -= OnBalloonPopped;
+                if (b != null) b.onPoppedSource -= OnBalloonPopped;
             }
         }
 
@@ -142,7 +156,7 @@ public class SaveTheAnimalController : MonoBehaviour
                     remaining++;
                 }
 
-                b.onPopped += OnBalloonPopped;
+                b.onPoppedSource += OnBalloonPopped;
             }
         }
 
@@ -275,7 +289,7 @@ public class SaveTheAnimalController : MonoBehaviour
         }
     }
 
-    private void OnBalloonPopped()
+    private void OnBalloonPopped(BalloonTap source)
     {
         if (remaining <= 0) return;
 
@@ -288,11 +302,11 @@ public class SaveTheAnimalController : MonoBehaviour
             if (groundLayer != null)
                 groundLayer.anchoredPosition = groundTargetPos;
 
+            TrySpawnFood(source);
             LandAnimal();
             remaining = 0;
             return;
         }
-
 
         // Move ground UP by step (Phase 2)
         if (groundLayer != null)
@@ -301,8 +315,65 @@ public class SaveTheAnimalController : MonoBehaviour
             groundTargetPos.y = Mathf.Min(groundTargetPos.y, groundFinalY); // clamp
         }
 
-
         remaining--;
+    }
+
+    private void TrySpawnFood(BalloonTap source)
+    {
+        if (foodItemPrefab == null) return;
+        if (source == null || source.food == null) return;
+        if (foodContainer == null) return;
+
+        // Balloon is already SetActive(false) but its transform position is still valid
+        var balloonRT = source.GetComponent<RectTransform>();
+        if (balloonRT == null) return;
+
+        // Convert balloon world position to foodContainer local space
+        Vector2 startPos = (Vector2)foodContainer.InverseTransformPoint(balloonRT.position);
+
+        GameObject foodGO = Instantiate(foodItemPrefab, foodContainer);
+        var fly = foodGO.GetComponent<FoodFlyUI>();
+        if (fly == null) fly = foodGO.AddComponent<FoodFlyUI>();
+
+        // Mouth target: use mouthPoint if assigned, else fall back to animal center
+        RectTransform target = mouthPoint != null ? mouthPoint : animal;
+
+        fly.StartFlight(source.food.sprite, startPos, target, foodContainer, OnFoodArrived);
+    }
+
+    private void OnFoodArrived()
+    {
+        StartCoroutine(ChewRoutine());
+    }
+
+    private System.Collections.IEnumerator ChewRoutine()
+    {
+        if (animal == null) yield break;
+
+        Vector3 baseScale = baseAnimalScale;
+
+        for (int i = 0; i < chewCount; i++)
+        {
+            // squish
+            float t = 0f;
+            while (t < 1f)
+            {
+                t += Time.deltaTime / Mathf.Max(0.01f, chewSquishTime);
+                float k = Mathf.Clamp01(t);
+                animal.localScale = Vector3.Lerp(baseScale, new Vector3(baseScale.x * chewSquishX, baseScale.y * chewSquishY, baseScale.z), k);
+                yield return null;
+            }
+            // restore
+            t = 0f;
+            while (t < 1f)
+            {
+                t += Time.deltaTime / Mathf.Max(0.01f, chewSquishTime);
+                animal.localScale = Vector3.Lerp(new Vector3(baseScale.x * chewSquishX, baseScale.y * chewSquishY, baseScale.z), baseScale, Mathf.Clamp01(t));
+                yield return null;
+            }
+        }
+
+        animal.localScale = baseScale;
     }
 
     private void ShowLandingShadow()
