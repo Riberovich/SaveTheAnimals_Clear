@@ -332,6 +332,7 @@ public class SaveTheAnimalController : MonoBehaviour
         Vector2 startPos = (Vector2)foodContainer.InverseTransformPoint(balloonRT.position);
 
         GameObject foodGO = Instantiate(foodItemPrefab, foodContainer);
+        foodGO.transform.SetAsLastSibling(); // render on top of everything in this container
         var fly = foodGO.GetComponent<FoodFlyUI>();
         if (fly == null) fly = foodGO.AddComponent<FoodFlyUI>();
 

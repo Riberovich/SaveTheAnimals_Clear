@@ -18,3 +18,8 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 1e646483d420ee44fae5ea4206bd1700, type: 3}
   - {fileID: 21300000, guid: 9c13f8f986d3a28498b650092d3af21c, type: 3}
   allowRepeats: 1
+  foodPerSprite:
+  - {fileID: 11400000, guid: 9de2e1314d537684c96609dd8944e051, type: 2}
+  - {fileID: 11400000, guid: a97faca169472b447b08103112eefaa6, type: 2}
+  - {fileID: 11400000, guid: edfc85e10b4362d40a64c5a9ba262faf, type: 2}
+  - {fileID: 11400000, guid: 3dd96cd35a8e62240b42c14859e045a2, type: 2}

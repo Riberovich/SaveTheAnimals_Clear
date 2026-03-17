@@ -89,12 +89,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f429a93bb56f1be4495d95e1297a2a53, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  food: {fileID: 0}
   popClips:
   - {fileID: 8300000, guid: aa718a6d93da39046b04715b160e8ace, type: 3}
   - {fileID: 8300000, guid: eea3024457793a846b5303dc8ddc7e58, type: 3}
   - {fileID: 8300000, guid: c4fa2ac12ac70614397f0ca36b34b34b, type: 3}
   - {fileID: 8300000, guid: f64c0ef5cd83f364d8439fe40bead1f5, type: 3}
-  sfxSource: {fileID: 0}
+  sfxSource: {fileID: 130947104548080321, guid: f51b053888a98774a923865daac632b7, type: 3}
   popVfxPrefab: {fileID: 565047493002392512, guid: 1352343a9eb85be41a0750075786d6fb, type: 3}
   vfxCanvas: {fileID: 0}
   worldCameraForSprites: {fileID: 0}

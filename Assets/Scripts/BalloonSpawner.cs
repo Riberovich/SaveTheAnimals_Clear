@@ -183,6 +183,9 @@ public class BalloonSpawner : MonoBehaviour
         var tap = balloon.GetComponent<BalloonTap>();
         if (tap == null) return;
 
+        if (popSfxSource == null)
+            Debug.LogWarning("BalloonSpawner: Pop Sfx Source is not assigned — no pop sound will play. Re-assign it in the Inspector.", this);
+
         tap.sfxSource = popSfxSource;
         tap.popClips = popClips;
         tap.popVfxPrefab = popVfxPrefab;
