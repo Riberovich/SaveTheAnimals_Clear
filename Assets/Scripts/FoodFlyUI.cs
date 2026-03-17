@@ -25,6 +25,13 @@ public class FoodFlyUI : MonoBehaviour
     [Header("Arrive Pop")]
     public float arrivePopTime = 0.1f;      // quick scale-to-zero on arrival
 
+    [Header("Sound")]
+    public AudioSource sfxSource;
+    public AudioClip flySound;              // one-shot played when food launches
+
+    [Header("Mouth VFX")]
+    public GameObject mouthVfxPrefab;       // particle prefab spawned when food arrives
+
     // --- runtime ---
     private Image _img;
     private RectTransform _rt;
@@ -53,6 +60,9 @@ public class FoodFlyUI : MonoBehaviour
 
         _rt.anchoredPosition = startPos;
         _rt.localScale = Vector3.one;
+
+        if (sfxSource != null && flySound != null)
+            sfxSource.PlayOneShot(flySound);
 
         StartCoroutine(FlightRoutine(startPos));
     }
@@ -90,7 +100,9 @@ public class FoodFlyUI : MonoBehaviour
             yield return null;
         }
 
-        // ── Arrive: quick pop scale to zero ──────────────────────────────
+        // ── Arrive: spawn mouth VFX then scale to zero ───────────────────
+        SpawnMouthVfx();
+
         Vector3 s0 = _rt.localScale;
         t = 0f;
         while (t < 1f)
@@ -102,6 +114,20 @@ public class FoodFlyUI : MonoBehaviour
 
         _onArrived?.Invoke();
         Destroy(gameObject);
+    }
+
+    private void SpawnMouthVfx()
+    {
+        if (mouthVfxPrefab == null || _container == null) return;
+
+        // Spawn in the same container as the food, at the food's current position (= mouth)
+        GameObject vfx = Instantiate(mouthVfxPrefab, _container);
+        vfx.GetComponent<RectTransform>().anchoredPosition = _rt.anchoredPosition;
+        vfx.transform.SetAsLastSibling();
+
+        ParticleSystem ps = vfx.GetComponentInChildren<ParticleSystem>();
+        float lifetime = ps != null ? ps.main.duration + ps.main.startLifetime.constantMax + 0.2f : 1.5f;
+        Destroy(vfx, lifetime);
     }
 
     // Returns mouth position in container's local anchoredPosition space.

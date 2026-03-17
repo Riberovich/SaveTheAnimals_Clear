@@ -17,9 +17,15 @@ MonoBehaviour:
   - {fileID: 21300000, guid: ed2f6f2272e996047b0178341ff9ef7e, type: 3}
   - {fileID: 21300000, guid: 1e646483d420ee44fae5ea4206bd1700, type: 3}
   - {fileID: 21300000, guid: 9c13f8f986d3a28498b650092d3af21c, type: 3}
+  - {fileID: 21300000, guid: 06efb1879a51e5349bbb9bc450d3f551, type: 3}
+  - {fileID: 21300000, guid: 8921a07af0882c1478ee4253d8a321c5, type: 3}
+  - {fileID: 21300000, guid: 339af7d60f2039b478a56bacad58ceb9, type: 3}
   allowRepeats: 1
   foodPerSprite:
   - {fileID: 11400000, guid: 9de2e1314d537684c96609dd8944e051, type: 2}
   - {fileID: 11400000, guid: a97faca169472b447b08103112eefaa6, type: 2}
   - {fileID: 11400000, guid: edfc85e10b4362d40a64c5a9ba262faf, type: 2}
   - {fileID: 11400000, guid: 3dd96cd35a8e62240b42c14859e045a2, type: 2}
+  - {fileID: 11400000, guid: 767fb0917da1fbd4084e7cab64f8fd28, type: 2}
+  - {fileID: 11400000, guid: 2e2882b32ea05b24e8da2da6ec449626, type: 2}
+  - {fileID: 11400000, guid: decdc442d0e8dd148b1e6591f698f46d, type: 2}

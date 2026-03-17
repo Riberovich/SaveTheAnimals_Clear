@@ -48,10 +48,28 @@ public class SaveTheAnimalController : MonoBehaviour
     [Header("A4.X – Food Fly System")]
     [Tooltip("Prefab: RectTransform + Image + FoodFlyUI. No content — sprite is set at runtime.")]
     public GameObject foodItemPrefab;
-    [Tooltip("Parent container where food is spawned. Must share a canvas with the balloons (e.g. BalloonsRoot parent or the gameplay canvas RectTransform).")]
+    [Tooltip("Parent container where food is spawned. Must share a canvas with the balloons.")]
     public RectTransform foodContainer;
     [Tooltip("Empty child RectTransform placed at the animal's mouth position.")]
     public RectTransform mouthPoint;
+
+    [Header("Food Audio")]
+    [Tooltip("AudioSource in scene used for food fly + chew sounds.")]
+    public AudioSource foodSfxSource;
+    [Tooltip("Played once when food launches from balloon.")]
+    public AudioClip foodFlySound;
+    [Tooltip("Played on each chew squish cycle.")]
+    public AudioClip chewSound;
+
+    [Header("Mouth VFX")]
+    [Tooltip("Particle prefab spawned when food arrives at mouth.")]
+    public GameObject mouthVfxPrefab;
+
+    [Header("Slow-Mo Burst")]
+    [Tooltip("Time scale during the dramatic burst moment (0.1–0.4).")]
+    [Range(0.05f, 0.5f)] public float slowMoScale = 0.25f;
+    [Tooltip("How long the slow-mo lasts (real seconds).")]
+    public float slowMoDuration = 0.18f;
 
     [Header("Chew Animation")]
     public int chewCount = 3;
@@ -332,13 +350,15 @@ public class SaveTheAnimalController : MonoBehaviour
         Vector2 startPos = (Vector2)foodContainer.InverseTransformPoint(balloonRT.position);
 
         GameObject foodGO = Instantiate(foodItemPrefab, foodContainer);
-        foodGO.transform.SetAsLastSibling(); // render on top of everything in this container
+        foodGO.transform.SetAsLastSibling();
         var fly = foodGO.GetComponent<FoodFlyUI>();
         if (fly == null) fly = foodGO.AddComponent<FoodFlyUI>();
 
-        // Mouth target: use mouthPoint if assigned, else fall back to animal center
-        RectTransform target = mouthPoint != null ? mouthPoint : animal;
+        fly.sfxSource     = foodSfxSource;
+        fly.flySound      = foodFlySound;
+        fly.mouthVfxPrefab = mouthVfxPrefab;
 
+        RectTransform target = mouthPoint != null ? mouthPoint : animal;
         fly.StartFlight(source.food.sprite, startPos, target, foodContainer, OnFoodArrived);
     }
 
@@ -355,6 +375,9 @@ public class SaveTheAnimalController : MonoBehaviour
 
         for (int i = 0; i < chewCount; i++)
         {
+            if (foodSfxSource != null && chewSound != null)
+                foodSfxSource.PlayOneShot(chewSound);
+
             // squish
             float t = 0f;
             while (t < 1f)
@@ -442,6 +465,7 @@ public class SaveTheAnimalController : MonoBehaviour
             animalImage.sprite = sittingSprite;
 
         StopAllCoroutines();
+        StartCoroutine(SlowMoRoutine(slowMoScale, slowMoDuration)); // dramatic burst moment
         StartCoroutine(LandingRoutine());
         ShowLandingShadow();
     }
@@ -599,6 +623,29 @@ public class SaveTheAnimalController : MonoBehaviour
     {
         x = Mathf.Clamp01(x);
         return x * x * x;
+    }
+
+    private void OnDisable()
+    {
+        // Safety: if scene reloads or object is destroyed mid slow-mo, restore timescale
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = Time.fixedUnscaledDeltaTime;
+    }
+
+    private System.Collections.IEnumerator SlowMoRoutine(float scale, float realDuration)
+    {
+        Time.timeScale = scale;
+        Time.fixedDeltaTime = Time.fixedUnscaledDeltaTime * scale;
+
+        float elapsed = 0f;
+        while (elapsed < realDuration)
+        {
+            elapsed += Time.unscaledDeltaTime; // count real time, not slowed time
+            yield return null;
+        }
+
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = Time.fixedUnscaledDeltaTime;
     }
 
     private System.Collections.IEnumerator SmoothStartInputLockOnly(float duration)
