@@ -660,7 +660,7 @@ MonoBehaviour:
   foodSfxSource: {fileID: 130947104313799154}
   foodFlySound: {fileID: 8300000, guid: 4ba88bffef4738247a13dc664a15992f, type: 3}
   chewSound: {fileID: 8300000, guid: dd1c0c443fbde4e4c96102b768bcc360, type: 3}
-  mouthVfxPrefab: {fileID: 0}
+  mouthVfxPrefab: {fileID: 4588720852533451975, guid: 1f9ae1bc62270c2408bcfd1c91588005, type: 3}
   slowMoScale: 0.25
   slowMoDuration: 0.8
   chewCount: 2

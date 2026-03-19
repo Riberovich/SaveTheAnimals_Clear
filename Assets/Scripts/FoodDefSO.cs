@@ -13,4 +13,6 @@ public class FoodDefSO : ScriptableObject
 
     [Header("Visual")]
     public Sprite sprite;
+    [Tooltip("Color applied to the mouth crunch VFX particles when this food is eaten.")]
+    public Color vfxColor = Color.white;
 }

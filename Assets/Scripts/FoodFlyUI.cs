@@ -31,6 +31,7 @@ public class FoodFlyUI : MonoBehaviour
 
     [Header("Mouth VFX")]
     public GameObject mouthVfxPrefab;       // particle prefab spawned when food arrives
+    [HideInInspector] public Color mouthVfxColor = Color.white; // set by controller from FoodDefSO
 
     // --- runtime ---
     private Image _img;
@@ -125,8 +126,15 @@ public class FoodFlyUI : MonoBehaviour
         vfx.GetComponent<RectTransform>().anchoredPosition = _rt.anchoredPosition;
         vfx.transform.SetAsLastSibling();
 
-        ParticleSystem ps = vfx.GetComponentInChildren<ParticleSystem>();
-        float lifetime = ps != null ? ps.main.duration + ps.main.startLifetime.constantMax + 0.2f : 1.5f;
+        ParticleSystem[] systems = vfx.GetComponentsInChildren<ParticleSystem>();
+        float lifetime = 1.5f;
+        foreach (ParticleSystem ps in systems)
+        {
+            var main = ps.main;
+            main.startColor = mouthVfxColor;
+            float psEnd = ps.main.duration + ps.main.startLifetime.constantMax + 0.2f;
+            if (psEnd > lifetime) lifetime = psEnd;
+        }
         Destroy(vfx, lifetime);
     }
 

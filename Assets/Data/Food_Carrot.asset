@@ -15,3 +15,4 @@ MonoBehaviour:
   id: carrot
   colorTag: orange
   sprite: {fileID: 21300000, guid: f3417395b7ba21b45a3cf97fe6a1a53c, type: 3}
+  vfxColor: {r: 0.9803922, g: 0.5803922, b: 0.2509804, a: 1}

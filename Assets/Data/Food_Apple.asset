@@ -15,3 +15,4 @@ MonoBehaviour:
   id: apple
   colorTag: green
   sprite: {fileID: 21300000, guid: 20b8873b9287b2843af8a08921199077, type: 3}
+  vfxColor: {r: 0.8000001, g: 0.8705883, b: 0.31764707, a: 1}

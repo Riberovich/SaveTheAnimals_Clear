@@ -15,3 +15,4 @@ MonoBehaviour:
   id: peach
   colorTag: pink
   sprite: {fileID: 21300000, guid: 27358ee3c32f11c47b6624e8b05a1936, type: 3}
+  vfxColor: {r: 0.97647065, g: 0.6784314, b: 0.61960787, a: 1}

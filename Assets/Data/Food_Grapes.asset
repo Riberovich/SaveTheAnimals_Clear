@@ -15,3 +15,4 @@ MonoBehaviour:
   id: grapes
   colorTag: violet
   sprite: {fileID: 21300000, guid: ca9daa52cfa59784682eaef461648313, type: 3}
+  vfxColor: {r: 0.627451, g: 0.3921569, b: 0.6431373, a: 1}

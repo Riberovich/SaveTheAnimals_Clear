@@ -354,9 +354,10 @@ public class SaveTheAnimalController : MonoBehaviour
         var fly = foodGO.GetComponent<FoodFlyUI>();
         if (fly == null) fly = foodGO.AddComponent<FoodFlyUI>();
 
-        fly.sfxSource     = foodSfxSource;
-        fly.flySound      = foodFlySound;
+        fly.sfxSource      = foodSfxSource;
+        fly.flySound       = foodFlySound;
         fly.mouthVfxPrefab = mouthVfxPrefab;
+        fly.mouthVfxColor  = source.food.vfxColor;
 
         RectTransform target = mouthPoint != null ? mouthPoint : animal;
         fly.StartFlight(source.food.sprite, startPos, target, foodContainer, OnFoodArrived);
